@@ -1,0 +1,187 @@
+---
+    - name: "Apache - Installing Necessary Packages"
+      apt:
+        update-cache: yes
+        name: 
+          - apache2
+          - php
+          - php-mysql
+          - php-dom
+          - php-gd
+          - php-xml
+          - php-mbstring
+          - unzip
+        state: latest
+      tags: 
+        - lamp
+        - apache
+
+    - name: "Apache - Setting up ports. Apache will Listen on {{apache_port}}" 
+      template: 
+        src: ports.conf.j2
+        dest: /etc/apache2/ports.conf
+      tags: 
+        - lamp
+        - apache 
+
+    - name: "Apache - Creating virtualhost entry from vhost.conf.j2 template"
+      template:  
+        src: vhost.conf.j2
+        dest: /etc/apache2/sites-available/000-default.conf
+      register: vhost_status
+      tags:
+        - lamp
+        - apache
+
+    - name: "Apache - Creating Document root"
+      file:
+        path: "/var/www/html/{{apache_domain}}"
+        state: directory
+        owner: "{{apache_owner}}"
+        group: "{{apache_group}}"
+      tags:
+        - lamp
+        - apache
+
+    - name: "Apache - Creating Sample pages"
+      copy:
+        src: "{{item}}"
+        dest: "/var/www/html/{{apache_domain}}/"
+        owner: "{{apache_owner}}"
+        group: "{{apache_group}}"
+      with_items:
+        - test.php
+        - test.html
+      tags:
+        - lamp
+        - apache
+
+    - name: "Mariadb-Server - Installing MariaDB server"
+      apt:
+        name:
+          - mariadb-server
+          - python3-mysqldb
+        state: latest
+      register: install_status
+      tags:
+        - lamp
+        - mariadb
+
+    - name: "Mariadb-Server - Starting the services and enabling it"
+      service:
+        name: mariadb
+        state: restarted
+        enabled: true
+      tags:
+        - lamp
+        - mariadb
+
+    - name: "Mariadb-Server - Checking if root password is set"
+      when: install_status.changed == true
+      command:  mysql -u root -e "show databases"
+      register: root_pass
+      tags:
+        - lamp
+        - mariadb
+
+    - name: "Mariadb-Server - Setting the root password"
+      when: install_status.changed == true and root_pass.rc == 0
+      mysql_user:
+        login_user: "root"
+        login_password: ""
+        name: "root"
+        password: "{{mariadb_root_password}}"
+        host_all: true
+      tags:
+        - lamp
+        - mariadb
+
+    - name: "Mariadb-Server - Removing Anonymous users"
+      mysql_user:
+        login_user: "root"
+        login_password: "{{mariadb_root_password}}"
+        name: ""
+        password: ""
+        host_all: true
+        state: absent
+      tags:
+        - lamp
+        - mariadb
+
+    - name: "Mariadb-Server - Creating Wordpress database"
+      mysql_db:
+        login_user: "root"
+        login_password: "{{mariadb_root_password}}"
+        name: "{{mariadb_new_database}}"
+        state: present
+      tags:
+        - lamp
+        - mariadb
+
+    - name: "Mariadb-Server - Creating Wordpress User {{mariadb_new_user}}"
+      mysql_user:
+        login_user: "root"
+        login_password: "{{mariadb_root_password}}"
+        name: "{{mariadb_new_user}}"
+        password: "{{mariadb_newuser_password}}"
+        state: present
+        host: "%"
+        priv: "{{mariadb_new_database}}.*:ALL"
+      tags:
+        - lamp
+        - mariadb
+
+    - name: "Wordpress - Downloading Wordpress"
+      get_url:
+        url: "{{wp_url}}"
+        dest: /tmp/wordpress.tar.gz
+      tags:
+        - wordpress
+
+    - name: "Wordpress - Extracting Wordpress"
+      unarchive:
+        src: /tmp/wordpress.tar.gz
+        dest: /tmp/
+        remote_src: true
+      tags:
+        - wordpress
+
+    - name: "Wordpress - Copying Wordpress files to Documnet root"
+      copy:
+        src: /tmp/wordpress/
+        dest: "/var/www/html/{{apache_domain}}"
+        owner: "{{apache_owner}}"
+        group: "{{apache_group}}"
+        remote_src: true
+      tags:
+        - wordpress
+
+    - name: "Wordpress - Creating wp-config.php"
+      template:
+        src: wp-config.php.j2
+        dest: "/var/www/html/{{apache_domain}}/wp-config.php"
+        owner: "{{apache_owner}}"
+        group: "{{apache_group}}"
+      tags:
+        - wordpress
+
+    - name: "Wordpress - Post-installation restart"
+      service:
+        name: "{{item}}"
+        state: restarted
+      with_items:
+        - "mariadb"
+        - "apache2"
+      tags:
+        - wordpress
+
+    - name: "Wordpress - Post-Installation Cleanup"
+      file:
+        path: "{{item}}"
+        state: absent
+      with_items:
+        - "/tmp/wordpress.tar.gz"
+        - "/tmp/wordpress/"
+      tags:
+        - wordpress
+

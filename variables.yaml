@@ -1,0 +1,10 @@
+---
+httpd_owner: "apache"
+httpd_group: "apache"
+httpd_port: "80"
+httpd_domain: "blog.manumohan.online"
+mariadb_root_password: "mysqlroot"
+mariadb_new_user: "bloguser"
+mariadb_newuser_password: "bloguser123"
+mariadb_new_database: "blogdb"
+wp_url: "https://wordpress.org/wordpress-6.1.1.tar.gz"

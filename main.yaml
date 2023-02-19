@@ -1,0 +1,25 @@
+---
+- name: "Wordpress Installer Ubuntu/Amazon Linux"
+  become: yes
+  vars:
+    - httpd_owner: "apache"
+    - httpd_group: "apache"
+    - httpd_port: "80"
+    - httpd_domain: "blog.manumohan.online"
+    - mariadb_root_password: "mysqlroot"
+    - mariadb_new_user: "bloguser"
+    - mariadb_newuser_password: "bloguser123"
+    - mariadb_new_database: "blogdb"
+    - wp_url: "https://wordpress.org/wordpress-6.1.1.tar.gz"
+    - apache_port: 80
+    - apache_domain: "blog.manumohan.online"
+    - apache_owner: "www-data"
+    - apache_group: "www-data"
+  hosts: all
+  tasks: 
+    
+    - include_tasks: wordrpress-alinux.yaml
+      when: ansible_distribution == "Amazon" and ansible_os_family == "RedHat"
+
+    - include_tasks: wordrpress-ubuntu.yaml
+      when: ansible_distribution == "Ubuntu" and ansible_os_family == "Debian"
